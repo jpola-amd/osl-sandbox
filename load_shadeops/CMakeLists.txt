@@ -14,6 +14,6 @@ set_target_properties(load_shade_ops PROPERTIES HIP_ARCHITECTURES "gfx1030")
 
 # copy the shader file to the build directory
 add_custom_command(TARGET load_shade_ops POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/shadeops_hip.gcn.bc ${CMAKE_CURRENT_BINARY_DIR}/shadeops_hip.gcn.bch
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/shadeops_hip.bc ${CMAKE_CURRENT_BINARY_DIR}/shadeops_hip.bc
     COMMENT "Copying shade.ops to the build directory"
 )

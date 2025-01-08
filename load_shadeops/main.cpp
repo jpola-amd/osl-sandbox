@@ -5,31 +5,18 @@
 #include <vector>
 #include <cstring>
 #include <filesystem>
+
+//Kernel is using OSL function osl_round_ff that is defined in shadeops_hip.bc
 const char* kernel_code = R"(
+
+extern "C" __device__ float osl_round_ff(float x);
+
 extern "C" __global__ void my_kernel(float* data) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    data[idx] = data[idx] * 2.0f;
+    data[idx] = osl_round_ff(data[idx]) * 2.0f;
 }
 )";
 
-
-// load binary code into vector<char>
-std::vector<char> loadBinaryFile(const std::string& filename)
-{
-    std::ifstream file(filename, std::ios::binary);
-    if (file.fail()) {
-        std::cerr << "Failed to open file: " << filename << std::endl;
-        return {};
-    }
-
-    file.seekg(0, std::ios::end);
-    const auto size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    std::vector<char> binary(size);
-    file.read(binary.data(), size);
-    return binary;
-}
 
 
 int main(int argc, char **argv) {
@@ -47,15 +34,6 @@ int main(int argc, char **argv) {
     std::cout << "Device name: " << props.name << std::endl;
 
     std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
-
-    {
-        hipModule_t module;
-        hipError_t result = hipModuleLoad(&module, "linked.hipfb");
-        if (result != hipSuccess) {
-            std::cerr << "Failed to load fatbin module" << std::endl;
-            return 1;
-        }
-    }
 
     hiprtcProgram prog;
     hiprtcResult hiprtcResult = hiprtcCreateProgram(&prog, kernel_code, "my_kernel.cu", 0, nullptr, nullptr);
@@ -115,8 +93,9 @@ int main(int argc, char **argv) {
         file.close();
     }
     
-
-        const char* isaopts[] = {
+/* Maybe usefull fol workaround how to pass spcific linker options */
+/*
+    const char* isaopts[] = {
         "-mllvm",
         "-inline-threshold=1",
         "-mllvm", 
@@ -124,7 +103,7 @@ int main(int argc, char **argv) {
         "-v",
         "-save-temps"
     };
-    
+
     // Set up JIT options
     std::vector<hiprtcJIT_option> jit_options = {
         HIPRTC_JIT_IR_TO_ISA_OPT_EXT,
@@ -138,12 +117,12 @@ int main(int argc, char **argv) {
         static_cast<const void*>(isaopts),
         static_cast<const void*>(&isaoptssize)
     };
-    
+*/
 
     hiprtcLinkState linkState;
     hiprtcResult = hiprtcLinkCreate(0, nullptr, nullptr, &linkState);
     
-    hiprtcResult = hiprtcLinkAddFile(linkState, HIPRTC_JIT_INPUT_LLVM_BITCODE, "shadeops_hip.bc.fatbin", 0, nullptr, nullptr);
+    hiprtcResult = hiprtcLinkAddFile(linkState, HIPRTC_JIT_INPUT_LLVM_BITCODE, "shadeops_hip.bc", 0, nullptr, nullptr);
     if (hiprtcResult != HIPRTC_SUCCESS) {
         std::cerr << "Failed to add file" << std::endl;
         return 1;
