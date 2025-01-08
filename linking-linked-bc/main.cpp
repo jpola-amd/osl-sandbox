@@ -13,25 +13,6 @@ extern "C" __global__ void my_kernel(float* data) {
 )";
 
 
-// load binary code into vector<char>
-std::vector<char> loadBinaryFile(const std::string& filename)
-{
-    std::ifstream file(filename, std::ios::binary);
-    if (file.fail()) {
-        std::cerr << "Failed to open file: " << filename << std::endl;
-        return {};
-    }
-
-    file.seekg(0, std::ios::end);
-    const auto size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    std::vector<char> binary(size);
-    file.read(binary.data(), size);
-    return binary;
-}
-
-
 int main(int argc, char **argv) {
   
     hipError_t result = hipInit(0);
@@ -40,22 +21,15 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-
-
     hipDeviceProp_t props;
     result = hipGetDeviceProperties(&props, 0);
-    std::cout << "Device name: " << props.name << std::endl;
-
-    std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
-
-    {
-        hipModule_t module;
-        hipError_t result = hipModuleLoad(&module, "linked.hipfb");
-        if (result != hipSuccess) {
-            std::cerr << "Failed to load fatbin module" << std::endl;
-            return 1;
-        }
+    if (result != hipSuccess) {
+        std::cerr << "Failed to get device properties" << std::endl;
+        return 1;
     }
+    std::cout << "Using device " << props.name << std::endl;
+    std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
+    std::cout << "Preparing to compile the kernel" << std::endl;
 
     hiprtcProgram prog;
     hiprtcResult hiprtcResult = hiprtcCreateProgram(&prog, kernel_code, "my_kernel.cu", 0, nullptr, nullptr);
@@ -108,49 +82,29 @@ int main(int argc, char **argv) {
 
     hiprtcDestroyProgram(&prog);
 
-    //save code to file
+    std::cout << "Kernel compiled successfully" << std::endl;
+    std::cout << "Saving the bitcode to kernel.bc" << std::endl;
     {
-        std::ofstream file("code.bc", std::ios::binary);
+        std::ofstream file("kernel.bc", std::ios::binary);
         file.write(code.data(), code.size());
         file.close();
     }
     
 
-        const char* isaopts[] = {
-        "-mllvm",
-        "-inline-threshold=1",
-        "-mllvm", 
-        "-inlinehint-threshold=1",
-        "-v",
-        "-save-temps"
-    };
-    
-    // Set up JIT options
-    std::vector<hiprtcJIT_option> jit_options = {
-        HIPRTC_JIT_IR_TO_ISA_OPT_EXT,
-        HIPRTC_JIT_IR_TO_ISA_OPT_COUNT_EXT
-    };
-    
-    // Number of LLVM options
-    size_t isaoptssize = sizeof(isaopts) / sizeof(isaopts[0]);
-    // Create options array
-    const void* lopts[] = {
-        static_cast<const void*>(isaopts),
-        static_cast<const void*>(&isaoptssize)
-    };
-    
-
     hiprtcLinkState linkState;
     hiprtcResult = hiprtcLinkCreate(0, nullptr, nullptr, &linkState);
-    
-    hiprtcResult = hiprtcLinkAddFile(linkState, HIPRTC_JIT_INPUT_LLVM_BITCODE, "shadeops_hip.bc.fatbin", 0, nullptr, nullptr);
+    if(hiprtcResult != HIPRTC_SUCCESS) {
+        std::cerr << "Failed to create link state" << std::endl;
+        return 1;
+    }
+
+    hiprtcResult = hiprtcLinkAddFile(linkState, HIPRTC_JIT_INPUT_LLVM_BITCODE, "shadeops_hip.gcn.bc", 0, nullptr, nullptr);
     if (hiprtcResult != HIPRTC_SUCCESS) {
         std::cerr << "Failed to add file" << std::endl;
         return 1;
     }
 
-    // hiprtcResult = hiprtcLinkAddData(linkState, HIPRTC_JIT_INPUT_LLVM_BITCODE, code.data(), code.size(), "code", 0, nullptr, nullptr);
-    hiprtcResult = hiprtcLinkAddFile(linkState, HIPRTC_JIT_INPUT_LLVM_BITCODE, "code.bc", 0, nullptr, nullptr);
+    hiprtcResult = hiprtcLinkAddFile(linkState, HIPRTC_JIT_INPUT_LLVM_BITCODE, "kernel.bc", 0, nullptr, nullptr);
     if (hiprtcResult != HIPRTC_SUCCESS) {
         std::cerr << "Failed to add data" << std::endl;
         return 1;
@@ -176,8 +130,8 @@ int main(int argc, char **argv) {
         return 1;
     }   
 
-
-
+    std::cout << "Module loaded successfully" << std::endl;
+    std::cout << "End of the program" << std::endl;
 
     return 0;
 }

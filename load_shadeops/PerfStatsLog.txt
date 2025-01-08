@@ -1,0 +1,4 @@
+FileIO                                                 4 calls    1.2946 ms
+AMD_COMGR_ACTION_LINK_BC_TO_BC                         1 calls    1.5868 ms
+CreateDir                                              5 calls    0.2319 ms
+AMD_COMGR_ACTION_COMPILE_SOURCE_WITH_DEVICE_LIBS_TO_BC     1 calls  258.0622 ms
