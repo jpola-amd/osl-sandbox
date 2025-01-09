@@ -21,12 +21,14 @@ function(HIP_COMPILE_TO_BC sources headers out_bitcode out_llvm extra_options)
     set(options
         -x hip
         -emit-llvm
+        -ffast-math
         -fgpu-rdc
         -S 
         --cuda-device-only
         --offload-arch=gfx1030
         -D__HIP_PLATFORM_AMD__
         -DUSE_HIP
+        -DHIP
     )
 
     if(extra_options)
